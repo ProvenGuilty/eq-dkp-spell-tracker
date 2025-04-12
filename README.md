@@ -1,5 +1,5 @@
 
-# EQ Log Parser - Spell Casting and Skill-Ups Tracker
+# EQ DKP Spell Tracker - Spell Casting and Skill-Ups Tracker
 
 This Python script processes **EverQuest (P99)** log files to calculate the total active time spent casting spells, the total AFK time, skill-ups for various skills, and experience message counts. It also allows you to optionally view detailed statistics and debug information.
 
@@ -20,8 +20,8 @@ The script supports the following features:
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/your-repository/eq-log-parser.git
-   cd eq-log-parser
+   git clone https://github.com/provenguilty/eq-dkp-spell-tracker.git
+   cd eq-dkp-spell-tracker
    ```
 
 2. **Install Python** (if not already installed):
@@ -30,29 +30,29 @@ The script supports the following features:
 3. **Run the script**:
    After setting up, run the script directly from your terminal:
    ```bash
-   python eq_log_parser.py
+   python eq_dkp_spell_tracker.py
    ```
 
 ### **Usage**
 
 - **Default Output (Clean Summary)**:
    ```bash
-   python eq_log_parser.py
+   python eq_dkp_spell_tracker.py
    ```
 
 - **Verbose Output (With Statistics)**:
    ```bash
-   python eq_log_parser.py -v
+   python eq_dkp_spell_tracker.py -v
    ```
 
 - **Debug Output (With Detailed Processing)**:
    ```bash
-   python eq_log_parser.py -d
+   python eq_dkp_spell_tracker.py -d
    ```
 
 - **Combined Verbose and Debug Output**:
    ```bash
-   python eq_log_parser.py -v -d
+   python eq_dkp_spell_tracker.py -v -d
    ```
 
 ### **Example Output**
@@ -93,4 +93,13 @@ Last cast entry: 2025-04-11 20:37:44
 ### **License**
 
 This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+### **Credits**
+
+This script was created through **Vibe Coding** and **Prompt Engineering** in tandem with **ChatGPT-4o Mini**.
+
+### **Author**
+- [Christopher Ryan](https://github.com/provenguilty) - GitHub Profile
 
