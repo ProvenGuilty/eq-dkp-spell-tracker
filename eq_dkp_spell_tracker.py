@@ -16,25 +16,43 @@ def detect_eq_logs():
     recent_logs = [
         f for f in log_files if current_time - os.path.getmtime(f) <= 7 * 86400
     ]
-    
+
     # Sort by modification time (most recent first)
     recent_logs.sort(key=lambda x: os.path.getmtime(x), reverse=True)
     return recent_logs
 
+def extract_dates_from_log(file_name):
+    """
+    Extracts all distinct calendar dates from the log file.
+    Returns a sorted list of distinct dates (most recent first).
+    """
+    dates = set()
+    try:
+        with open(file_name, 'r') as file:
+            lines = file.readlines()
 
-def parse_log(file_name, debug=False):
+        for line in lines:
+            # Match the timestamp format [Day Month Date Time Year]
+            match = re.match(r"\[([A-Za-z]{3}) (\w{3}) (\d{2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})\]", line)
+            if match:
+                log_date = datetime.strptime(f"{match.group(2)} {match.group(3)} {match.group(7)}", '%b %d %Y').date()
+                dates.add(log_date)
+
+        # Sort the dates in descending order (most recent first)
+        return sorted(dates, reverse=True)
+    except FileNotFoundError:
+        print(f"Error: The file {file_name} was not found.")
+        return []
+
+def parse_log(file_name, selected_date, debug=False):
     """
-    Parses a given EQ log file to calculate active time, AFK time, spell casting durations,
-    and skill-ups. Returns the relevant statistics, including the first and last cast entries
-    and total number of log entries.
+    Parses the EQ log file, calculates active time, AFK time, and skill-ups for the selected date.
     """
-    total_active_time = total_afk_time = total_processing_time = 0
+    total_active_time = total_afk_time = 0
     first_cast_time = last_cast_time = None
     skillups = {}
-    excluded_lines = []
     experience_count = 0  # Counter for experience messages
     total_log_entries = 0  # Total number of log entries scanned
-    character_name = file_name.split('_')[1]
     last_timestamp = None  # Store timestamp of the previous cast
 
     try:
@@ -44,9 +62,16 @@ def parse_log(file_name, debug=False):
         total_log_entries = len(lines)  # Count the total number of log entries
 
         for line in lines:
+            # Match date and filter by selected date
+            match = re.match(r"\[([A-Za-z]{3}) (\w{3}) (\d{2}) (\d{2}):(\d{2}):(\d{2}) (\d{4})\]", line)
+            if match:
+                log_date = datetime.strptime(f"{match.group(2)} {match.group(3)} {match.group(7)}", '%b %d %Y').date()
+                if log_date != selected_date:
+                    continue  # Skip log entries that are not from the selected date
+
+            # Track experience messages
             if "You gain party experience" in line:
-                experience_count += 1  # Increment experience message count
-                excluded_lines.append(line.strip())  # Skip experience gain messages
+                experience_count += 1
                 continue
 
             # Process spell casting events
@@ -90,31 +115,26 @@ def parse_log(file_name, debug=False):
             if skillup_match:
                 skill = skillup_match.group(1)
                 skill_level = int(skillup_match.group(2))
-                
+
                 # Track the starting and ending levels for each skill
                 if skill not in skillups:
                     skillups[skill] = {'start': skill_level, 'end': skill_level}
                 else:
                     skillups[skill]['end'] = skill_level
 
-        # Process excluded lines to debug
-        if excluded_lines:
-            with open(f"excluded_lines_{character_name}.log", "w") as debug_file:
-                debug_file.write("\n".join(excluded_lines))
+        return total_active_time, total_afk_time, first_cast_time, last_cast_time, skillups, experience_count, total_log_entries
 
-        return total_active_time, total_afk_time, total_processing_time, first_cast_time, last_cast_time, skillups, experience_count, total_log_entries
-    
     except FileNotFoundError:
         print(f"Error: The file {file_name} was not found.")
-        return 0, 0, 0, None, None, None, 0, 0
+        return 0, 0, None, None, {}, 0, 0
 
 
 def display_report(total_active_time, total_afk_time, total_processing_time, first_cast_time, last_cast_time, skillups, experience_count, total_log_entries, verbose, debug):
     """
     Displays the final report with active time, AFK time, processing time, and skill-up information.
     """
-    print(f"\nTotal active time spent casting spells: {total_active_time:.2f} seconds")
-    print(f"Total AFK time: {total_afk_time:.2f} seconds")
+    print(f"\nTotal active time spent casting spells: {total_active_time/60:.2f} minutes")
+    print(f"Total AFK time: {total_afk_time/60:.2f} minutes")
     print(f"Total processing time: {total_processing_time:.2f} seconds")  # Keep in seconds
 
     # Display skill-ups
@@ -143,7 +163,7 @@ def display_report(total_active_time, total_afk_time, total_processing_time, fir
 
 def main():
     """
-    Main function that allows the user to select a log file, parses it, and displays the results.
+    Main function that allows the user to select a log file, parse it, and display the results.
     """
     parser = argparse.ArgumentParser(description="Process EQ logs for spell casting and skill-ups.")
     parser.add_argument('-v', '--verbose', action='store_true', help="Enable verbose output with statistics")
@@ -169,11 +189,25 @@ def main():
         print("Invalid selection.")
         return
 
+    # Extract dates from the selected log file
+    available_dates = extract_dates_from_log(selected_log)
+
+    if not available_dates:
+        print(f"No valid log entries found for {selected_log}.")
+        return
+
+    print("\nSelect a date to analyze (most recent first):")
+    for idx, date in enumerate(available_dates[:7], 1):
+        print(f"{idx}. {date}")
+
+    date_index_input = input(f"Select a date (press Enter to default to {available_dates[0]}): ")
+    selected_date = available_dates[int(date_index_input) - 1] if date_index_input else available_dates[0]
+
     # Capture start time for processing
     start_time = time.time()
 
     # Parse the log and display the report
-    total_active_time, total_afk_time, total_processing_time, first_cast_time, last_cast_time, skillups, experience_count, total_log_entries = parse_log(selected_log, debug=args.debug)
+    total_active_time, total_afk_time, first_cast_time, last_cast_time, skillups, experience_count, total_log_entries = parse_log(selected_log, selected_date, debug=args.debug)
 
     # Capture end time and calculate processing time
     end_time = time.time()
@@ -185,4 +219,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
